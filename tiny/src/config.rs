@@ -1,13 +1,13 @@
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::fs;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 
-#[derive(Clone, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Clone, Deserialize)]
 pub(crate) struct SASLAuth {
     pub(crate) username: String,
-    pub(crate) password: String,
+    pub(crate) password: PassField,
 }
 
 #[derive(Clone, Deserialize)]
@@ -65,6 +65,46 @@ pub(crate) struct Config {
     pub(crate) servers: Vec<Server>,
     pub(crate) defaults: Defaults,
     pub(crate) log_dir: Option<PathBuf>,
+}
+
+#[derive(Clone)]
+pub(crate) enum PassField {
+    /// Plain text password
+    Plain(String),
+    /// Run the command to get the password
+    Cmd(String),
+}
+
+impl PassField {
+    /// Run password command and get the password.
+    pub(crate) fn get(&self) -> Result<String, String> {
+        match self {
+            PassField::Plain(str) => Ok(str.clone()),
+            PassField::Cmd(cmd) => {
+                let args = cmd.split_whitespace().collect::<Vec<_>>();
+                todo!()
+            }
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PassField {
+    fn deserialize<D>(d: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s = String::deserialize(d)?;
+        let s = s.trim();
+        Ok(if s.starts_with('!') {
+            if s[1..].starts_with('!') {
+                PassField::Plain(s.to_owned())
+            } else {
+                PassField::Cmd(s[1..].to_owned())
+            }
+        } else {
+            PassField::Plain(s.to_owned())
+        })
+    }
 }
 
 /// Returns error descriptions.
