@@ -150,7 +150,7 @@ fn run(
                 nickserv_ident: server.nickserv_ident,
                 sasl_auth: server.sasl_auth.map(|auth| libtiny_client::SASLAuth {
                     username: auth.username,
-                    password: auth.password,
+                    password: auth.password.get().unwrap(), // TODO
                 }),
             };
 

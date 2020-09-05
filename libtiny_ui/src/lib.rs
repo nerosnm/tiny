@@ -1,6 +1,8 @@
 pub use objekt::clone_box;
 use time::Tm;
 
+use std::{io, process};
+
 /// Target of a message to be shown in a UI.
 #[derive(Debug)]
 pub enum MsgTarget<'a> {
@@ -164,6 +166,17 @@ pub trait UI: objekt::Clone {
     /// coming from server; e.g. messages from services sometimes shown in their own tabs,
     /// sometimes in the server tab.
     fn user_tab_exists(&self, serv: &str, nick: &str) -> bool;
+
+    /// Run the given command and return output. Two important notes:
+    ///
+    /// - The command may interact with the user, so in a TUI we should give up control of stdin
+    ///   and stdout before running the callback. In a GUI we should show stdout to user and get
+    ///   pass user input to the process's stdin.
+    ///
+    /// - When the UI is running in the same thread with the client event loop the command should
+    ///   run in its own thread, to avoid blocking the event loop.
+    ///
+    fn run_process<A, F: FnOnce() -> A>(&self, run: F) -> A;
 }
 
 #[derive(Clone)]
@@ -276,6 +289,11 @@ impl<UI1: UI + Clone, UI2: UI + Clone> UI for CombinedUIs<UI1, UI2> {
     fn user_tab_exists(&self, serv: &str, nick: &str) -> bool {
         // TODO weird
         self.ui1.user_tab_exists(serv, nick)
+    }
+
+    fn run_process<A, F: FnOnce() -> A>(&self, run: F) -> A {
+        // TODO another weird case here. Perhaps `combine` isn't such a good idea.
+        self.ui1.run_process(run)
     }
 }
 
